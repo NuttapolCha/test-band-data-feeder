@@ -3,21 +3,29 @@ Log:
   
 ExternalAPIs:
   DataSource:
-    RetryCount: 3 # will retry requesting if error occurred while calling endpoint
+    # will retry requesting if error occurred while calling endpoint
+    RetryCount: 3
     RequestPricingData: "https://interview-requester-source.herokuapp.com/request"
     GetPricingData: "https://interview-requester-source.herokuapp.com/request"
   Destination:
-    RetryCount: 3 # will retry requesting if error occurred while calling endpoint
+    # will retry requesting if error occurred while calling endpoint
+    RetryCount: 3
     UpdatePricingData: "https://band-interview-destination.herokuapp.com/update"
     GetUpdatedPricingData: "https://band-interview-destination.herokuapp.com/get_price"
 
-# configuration for data-feeder application
 DataFeeder:
-  MaximumDelay: 3600 # will updates pricing to destination if no previous update longer than 3600 seconds
+  # will updates pricing to destination if no previous update longer than 3600 seconds
+  MaximumDelay: 3600 
+  # if current price is differ from latest price more than 0.1 then will update to destination immediatly
   DiffThreshold: 0.1
-  TriggeredInterval: 5 # get new pricing every 10 seconds
-  WaitTime: 5 # before getting the requested pricing
-  Symbols: # will feed these symbols to destination
+  # get new pricing every 10 seconds
+  DataSourceInterval: 10 
+  # check if we need to update to destination every 10 seconds
+  DestinationInterval: 10
+  # before getting the requested pricing
+  WaitTime: 5 
+  # will feed these symbols to destination
+  Symbols:
     - "BTC"
     - "ETH"
     - "ADA"

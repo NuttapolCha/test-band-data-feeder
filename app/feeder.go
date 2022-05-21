@@ -1,27 +1,27 @@
 package app
 
 import (
-	"context"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/NuttapolCha/test-band-data-feeder/cache"
 )
 
 var (
-	feederLock sync.Mutex
-
-	latestUpdatedTime int64
+	dataSourceLock  sync.Mutex
+	destinationLock sync.Mutex
 )
 
 func (app *App) StartDataAutomaticFeeder() error {
 	config := getTimeConfig()
-	app.logger.Infof("Data Automatic Feeder is starting with interval %v and will immediatly feed when longer than %v", config.interval, config.maximumDelay)
+	app.logger.Infof("Data Automatic Feeder is starting")
 
 	tickers := []*time.Ticker{
-		schedule(app.startFeeding, config.interval),
-		schedule(app.forceFeeding, config.maximumDelay),
+		schedule(app.getDataFromSource, config.dataSourceInterval),
+		schedule(app.updateDataToDestination, config.destinationInterval),
 	}
 
 	quitChannel := make(chan os.Signal, 1)
@@ -35,11 +35,10 @@ func (app *App) StartDataAutomaticFeeder() error {
 	return nil
 }
 
-func (app *App) startFeeding() {
-	app.ctx = context.Background()
-	feederLock.Lock()
-	defer feederLock.Unlock()
-	app.logger.Infof("feeding process is starting")
+func (app *App) getDataFromSource() {
+	dataSourceLock.Lock()
+	defer dataSourceLock.Unlock()
+	app.logger.Infof("getting data from source..")
 
 	config := getFeederConfig()
 	app.logger.Debugf("symbols: %v", config.symbols)
@@ -55,23 +54,35 @@ func (app *App) startFeeding() {
 	time.Sleep(config.waitTime * time.Second)
 
 	// get pricing data from the requested
-	priceMapping, err := app.getRequestedPricingFromSource(reqId, config)
+	pricingResults, err := app.getRequestedPricingFromSource(reqId, config)
 	if err != nil {
 		app.logger.Errorf("could not get requested pricing from source because: %v", err)
 		return
 	}
 
-	// prepare data before request update latest price information to destination
-	updateParams := priceMapping.toDstParams()
-	app.logger.Debugf("%v", updateParams)
-	// TODO
+	// caching accquired pricing results to memory
+	err = app.cachePricingResults(pricingResults)
+	if err != nil {
+		app.logger.Errorf("could not cache pricing results to memory because: %v", err)
+		return
+	}
 }
 
-func (app *App) forceFeeding() {
-	app.ctx = context.Background()
+func (app *App) updateDataToDestination() {
+	destinationLock.Lock()
+	defer destinationLock.Unlock()
+	app.logger.Debugf("checking if we needed to update pricing to destination..")
 
-	feederLock.Lock()
-	defer feederLock.Unlock()
-	app.logger.Debugf("checking if needed to force update pricing to destination")
+	config := getFeederConfig()
 
+	for _, sym := range config.symbols {
+		latestPrice, err := cache.GetLatestPrice(sym)
+		if err != nil {
+			app.logger.Errorf("could not get latest price of %s from cache because: %v", sym, err)
+			return
+		}
+		app.logger.Infof("%s last update at %d price = %.4f", sym, latestPrice.Timestamp, latestPrice.Price)
+	}
+
+	// TODO
 }

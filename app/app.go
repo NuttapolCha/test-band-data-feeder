@@ -17,7 +17,7 @@ type App struct {
 func New(logger log.Logger) App {
 	return App{
 		logger:     logger,
-		ctx:        nil,
+		ctx:        context.TODO(),
 		httpClient: connector.NewCustomHttpClient(logger),
 	}
 }
