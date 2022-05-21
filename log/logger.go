@@ -1,6 +1,7 @@
 package log
 
 import (
+	"encoding/json"
 	"log"
 	"strings"
 
@@ -17,19 +18,29 @@ const (
 type Logger struct{ level logLevel }
 
 // NewLogger initializes a simple logger
-func NewLogger() Logger {
-	return Logger{
-		level: func() logLevel {
-			if strings.ToLower(viper.GetString("Log.Level")) == "debug" {
-				return debug
-			}
-			return info
-		}(),
+func NewLogger() (Logger, error) {
+	lvl := info
+	if strings.ToLower(viper.GetString("Log.Level")) == "debug" {
+		lvl = debug
 	}
+
+	logger := Logger{
+		level: lvl,
+	}
+
+	return logger, nil
 }
 
 func (logger *Logger) Infof(template string, args ...interface{}) {
 	log.Printf("\033[0;34m[INFO]\033[0;37m "+template+"\n", args...)
+}
+
+func (logger *Logger) Errorf(template string, args ...interface{}) {
+	log.Printf("\033[0;31m[ERROR]\033[0;37m "+template+"\n", args...)
+}
+
+func (logger *Logger) Warnf(template string, args ...interface{}) {
+	log.Printf("\033[0;33m[WARN]\033[0;37m "+template+"\n", args...)
 }
 
 func (logger *Logger) Debugf(template string, args ...interface{}) {
@@ -39,10 +50,14 @@ func (logger *Logger) Debugf(template string, args ...interface{}) {
 	log.Printf("\033[0;35m[DEBUG]\033[0;37m "+template+"\n", args...)
 }
 
-func (logger *Logger) Errorf(template string, args ...interface{}) {
-	log.Printf("\033[0;31m[ERROR]\033[0;37m "+template+"\n", args...)
-}
+func (logger *Logger) BeautyJSON(bs []byte) {
+	if logger.level != debug {
+		return
+	}
 
-func (logger *Logger) Warnf(template string, args ...interface{}) {
-	log.Printf("\033[0;33m[WARN]\033[0;37m "+template+"\n", args...)
+	var i interface{}
+	json.Unmarshal(bs, &i)
+
+	res, _ := json.MarshalIndent(&i, "", "\t")
+	log.Printf("\033[0;35m[DEBUG]\033[0;37m " + string(res) + "\n")
 }

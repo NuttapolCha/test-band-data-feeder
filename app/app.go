@@ -2,22 +2,32 @@ package app
 
 import (
 	"context"
+	"time"
 
+	"github.com/NuttapolCha/test-band-data-feeder/connector"
 	"github.com/NuttapolCha/test-band-data-feeder/log"
 )
 
 type App struct {
-	logger log.Logger
-	ctx    context.Context
+	logger     log.Logger
+	ctx        context.Context
+	httpClient *connector.CustomHttpClient
 }
 
-func New(logger log.Logger, ctx context.Context) App {
+func New(logger log.Logger) App {
 	return App{
-		logger: logger,
-		ctx:    ctx,
+		logger:     logger,
+		ctx:        nil,
+		httpClient: connector.NewCustomHttpClient(logger),
 	}
 }
 
-func (app *App) DataAutomaticFeeder() error {
-	return nil
+func schedule(f func(), d time.Duration) *time.Ticker {
+	ticker := time.NewTicker(d)
+	go func() {
+		for range ticker.C {
+			f()
+		}
+	}()
+	return ticker
 }
