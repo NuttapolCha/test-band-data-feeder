@@ -1,0 +1,10 @@
+Log:
+  Level: "debug"
+
+Endpoints:
+  DataSource:
+    RequestPricingData: "https://interview-requester-source.herokuapp.com/request"
+    GetRequestedPricingData: "https://interview-requester-source.herokuapp.com/request/"
+  Destination:
+    UpdatePricingData: "https://band-interview-destination.herokuapp.com/update"
+    GetUpdatedPricingData: "https://band-interview-destination.herokuapp.com/get_price"
