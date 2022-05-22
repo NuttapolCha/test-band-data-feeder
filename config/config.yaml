@@ -1,6 +1,6 @@
 Log:
   # 'info' or 'debug' or 'verbose'
-  Level: "info"
+  Level: "debug"
   
 ExternalAPIs:
   DataSource:
@@ -15,10 +15,19 @@ ExternalAPIs:
     GetUpdatedPricingData: "https://band-interview-destination.herokuapp.com/get_price"
 
 DataFeeder:
+  Cache:
+    # setting Enable to false results in call destination for updated price every time 
+    Enable: true
+    DataSource: "./cache/data_source.json"
+    Destination: "./cache/destination.json"
+    # If destination data cache has not been updated longer than 3600 seconds, service will call endpoint for updating
+    # only used in calling for destination updated price
+    LiveTime: 3600
+  
   # will updates pricing to destination if no previous update longer than 3600 seconds
-  MaximumDelay: 3600 
+  MaximumDelay: 60 
   # if current price is differ from latest price more than 0.1 then will update to destination immediatly
-  DiffThreshold: 0.1
+  DiffThreshold: 0.05
   # get new pricing every 10 seconds
   DataSourceInterval: 10 
   # check if we need to update to destination every 10 seconds

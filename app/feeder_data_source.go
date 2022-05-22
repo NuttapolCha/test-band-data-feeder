@@ -93,9 +93,9 @@ func (app *App) cachePricingResults(results []PricingResult) error {
 		}
 
 		price := multipliedPrice / multiplier
-		logger.Infof("caching price of %s = %.4f USD", pricing.Symbol, price)
+		logger.Infof("got price of %s = %.4f USD from data source", pricing.Symbol, price)
 
-		err = cache.UpdatePriceInfo(pricing.Symbol, price, updatedTime)
+		err = cache.UpdatePriceToDataSource(pricing.Symbol, price, updatedTime)
 		if err != nil {
 			logger.Errorf("could not update price info of %s at %d because: %v", pricing.Symbol, updatedTime, err)
 			return err

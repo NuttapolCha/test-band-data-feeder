@@ -2,6 +2,8 @@ package app
 
 import (
 	"encoding/json"
+
+	"github.com/NuttapolCha/test-band-data-feeder/cache"
 )
 
 type UpdatePricingParams struct {
@@ -23,24 +25,43 @@ func (p *DestinationPricingResp) GetTimestamp() int64 {
 	return p.LastUpdate
 }
 
-func (app *App) getLatestPriceFromDestination(symbol string, config *FeederConfig) (*DestinationPricingResp, error) {
+func (app *App) getLatestPriceFromDestination(symbol string, config *FeederConfig) (*DestinationPricingResp, bool, error) {
 	logger := app.logger
+
+	if config.cachingEnable {
+		pricing, err := cache.GetLatestPriceFromDestination(symbol)
+		if err == nil {
+			logger.Infof("use cached destination latest pricing of %s", symbol)
+			return &DestinationPricingResp{
+				Price:      pricing.GetPrice(),
+				LastUpdate: pricing.GetTimestamp(),
+			}, false, nil
+		} else {
+			logger.Infof("could not get latest price from destination cache because: %v result in call destination service", err)
+		}
+	}
 
 	body, err := app.httpClient.Get(config.getUpdatedPricingData, map[string]string{
 		"symbol": symbol,
 	}, config.destinationRetryCount)
 	if err != nil {
 		logger.Errorf("could not http GET because: %v", err)
-		return nil, err
+		return nil, false, err
 	}
 
 	ret := &DestinationPricingResp{}
 	if err := json.Unmarshal(body, ret); err != nil {
 		logger.Errorf("could not unmarshal destination pricing body into GO struct because: %v", err)
-		return nil, err
+		return nil, false, err
 	}
 
-	return ret, nil
+	if err := cache.UpdatePriceToDestination(symbol, ret.GetPrice(), ret.GetTimestamp()); err != nil {
+		logger.Errorf("could not update price to cache because: %v")
+	} else {
+		logger.Infof("pricing information of %s at destination has been cached", symbol)
+	}
+
+	return ret, true, nil
 }
 
 type pricingWithTimestamp interface {
@@ -88,7 +109,7 @@ func (app *App) isNeedUpdatePricingToDestination(
 		return true, true
 	}
 
-	logger.Infof("symbol %s no need to send update at destination because delay = %ds and diff ratio = %.4f", symbol, timeDiff, priceDiffRatio)
+	logger.Debugf("symbol %s no need to send update at destination because delay = %ds and diff ratio = %.4f", symbol, timeDiff, priceDiffRatio)
 	return false, false
 }
 
@@ -113,7 +134,7 @@ func (app *App) updatePricingToDestination(updatePricingParamsList []*UpdatePric
 			continue // current params error, try next
 		}
 		updatedSymbols = append(updatedSymbols, params.Symbols...)
-		logger.Infof("successfully update pricing information of %+v prices %+v at timestamp %v", params.Symbols, params.Prices, params.Timestamp)
+		logger.Debugf("successfully update pricing information of %+v prices %+v at timestamp %v", params.Symbols, params.Prices, params.Timestamp)
 	}
 
 	return updatedSymbols, err

@@ -7,6 +7,10 @@ import (
 )
 
 type FeederConfig struct {
+	cachingEnable bool
+	// dataSourceCachePath  string
+	// destinationCachePath string
+
 	// Symbols
 	symbols []string
 
@@ -31,6 +35,9 @@ var feederConfig *FeederConfig
 func getFeederConfig() *FeederConfig {
 	if feederConfig == nil {
 		feederConfig = &FeederConfig{
+			cachingEnable: viper.GetBool("DataFeeder.Cache.Enable"),
+			// dataSourceCachePath:        viper.GetString("DataFeeder.Cache.DataSource"),
+			// destinationCachePath:       viper.GetString("DataFeeder.Cache.Destination"),
 			symbols:                    viper.GetStringSlice("DataFeeder.Symbols"),
 			waitTime:                   viper.GetDuration("DataFeeder.WaitTime"),
 			dataSourceRetryCount:       viper.GetInt("ExternalAPIs.DataSource.RetryCount"),

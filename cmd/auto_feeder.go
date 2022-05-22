@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"github.com/NuttapolCha/test-band-data-feeder/app"
+	"github.com/NuttapolCha/test-band-data-feeder/cache"
 	"github.com/NuttapolCha/test-band-data-feeder/connector"
 	"github.com/NuttapolCha/test-band-data-feeder/log"
 	"github.com/spf13/cobra"
@@ -15,6 +16,10 @@ var autoFeederCmd = &cobra.Command{
 		if err != nil {
 			panic(err)
 		}
+
+		cache.Init(logger)
+		defer cache.Done(logger)
+
 		httpClient := connector.NewCustomHttpClient(logger)
 		application := app.New(logger, httpClient)
 		return application.StartDataAutomaticFeeder()

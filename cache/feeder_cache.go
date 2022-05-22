@@ -2,58 +2,61 @@ package cache
 
 import (
 	"fmt"
-	"sync"
+	"time"
 )
 
-type Pricing struct {
-	price     float64
-	timestamp int64
-}
+func GetLatestPriceFromDataSource(symbol string) (*Pricing, error) {
+	latestDataSource.mu.Lock()
+	defer latestDataSource.mu.Unlock()
 
-func (p *Pricing) GetPrice() float64 {
-	return p.price
-}
-
-func (p *Pricing) GetTimestamp() int64 {
-	return p.timestamp
-}
-
-type symbolMapPricing map[string]*Pricing
-
-type LatestPricing struct {
-	mu sync.Mutex
-	m  symbolMapPricing
-}
-
-var ltsp LatestPricing
-
-func init() {
-	ltsp = LatestPricing{
-		mu: sync.Mutex{},
-		m:  make(symbolMapPricing),
-	}
-}
-
-func GetLatestPrice(symbol string) (*Pricing, error) {
-	ltsp.mu.Lock()
-	defer ltsp.mu.Unlock()
-
-	pricing, ok := ltsp.m[symbol]
+	pricing, ok := latestDataSource.m[symbol]
 	if !ok {
-		return nil, fmt.Errorf("cache has not been inited")
+		return nil, fmt.Errorf("data source cache has not been inited")
 	}
 
 	return pricing, nil
 }
 
-func UpdatePriceInfo(symbol string, price float64, timestamp int64) error {
-	ltsp.mu.Lock()
-	defer ltsp.mu.Unlock()
+func GetLatestPriceFromDestination(symbol string) (*Pricing, error) {
+	if time.Now().After(destinationCacheUpdatedAt.Add(liveTime)) {
+		return nil, fmt.Errorf("destination cache is old")
+	}
 
-	ltsp.m[symbol] = &Pricing{
-		price:     price,
-		timestamp: timestamp,
+	latestDestination.mu.Lock()
+	defer latestDestination.mu.Unlock()
+
+	pricing, ok := latestDestination.m[symbol]
+	if !ok {
+		return nil, fmt.Errorf("destination cache has not been inited")
+	}
+
+	return pricing, nil
+}
+
+func UpdatePriceToDataSource(symbol string, price float64, timestamp int64) error {
+	latestDataSource.mu.Lock()
+	defer latestDataSource.mu.Unlock()
+
+	latestDataSource.m[symbol] = &Pricing{
+		Price:     price,
+		Timestamp: timestamp,
 	}
 
 	return nil
+}
+
+func UpdatePriceToDestination(symbol string, price float64, timestamp int64) error {
+	latestDestination.mu.Lock()
+	defer latestDestination.mu.Unlock()
+
+	latestDestination.m[symbol] = &Pricing{
+		Price:     price,
+		Timestamp: timestamp,
+	}
+
+	return nil
+}
+
+func UpdateDestinationCacheTime() {
+	destinationCacheUpdatedAt = time.Now()
 }

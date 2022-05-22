@@ -1,0 +1,30 @@
+{
+	"ADA": {
+		"price": 0.54274771,
+		"timestamp": 1653226896
+	},
+	"ALPHA": {
+		"price": 0.165,
+		"timestamp": 1653226688
+	},
+	"BAND": {
+		"price": 1.87,
+		"timestamp": 1653226688
+	},
+	"BTC": {
+		"price": 30016.4335,
+		"timestamp": 1653226896
+	},
+	"DOGE": {
+		"price": 0.08604887,
+		"timestamp": 1653226896
+	},
+	"ETH": {
+		"price": 2018.714,
+		"timestamp": 1653226896
+	},
+	"UST": {
+		"price": 0.119529,
+		"timestamp": 1652412654
+	}
+}
