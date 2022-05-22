@@ -24,6 +24,7 @@ type FeederConfig struct {
 	destinationRetryCount     int
 	updatePricingDataEndpoint string
 	getUpdatedPricingData     string
+	maximumDelay              int64
 }
 
 var feederConfig *FeederConfig
@@ -40,6 +41,7 @@ func getFeederConfig() *FeederConfig {
 			destinationRetryCount:      viper.GetInt("ExternalAPIs.Destination.RetryCount"),
 			updatePricingDataEndpoint:  viper.GetString("ExternalAPIs.Destination.UpdatePricingData"),
 			getUpdatedPricingData:      viper.GetString("ExternalAPIs.Destination.GetUpdatedPricingData"),
+			maximumDelay:               viper.GetInt64("DataFeeder.MaximumDelay"),
 		}
 	}
 	return feederConfig

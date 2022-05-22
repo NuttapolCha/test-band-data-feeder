@@ -13,15 +13,24 @@ type logLevel int
 const (
 	info logLevel = iota
 	debug
+	verbose
 )
 
-type Logger struct{ level logLevel }
+type Logger struct {
+	level logLevel
+}
 
 // NewLogger initializes a simple logger
 func NewLogger() (Logger, error) {
-	lvl := info
-	if strings.ToLower(viper.GetString("Log.Level")) == "debug" {
+	var lvl logLevel
+
+	switch strings.ToLower(viper.GetString("Log.Level")) {
+	case "debug":
 		lvl = debug
+	case "verbose":
+		lvl = verbose
+	default:
+		lvl = info
 	}
 
 	logger := Logger{
@@ -51,7 +60,7 @@ func (logger *Logger) Debugf(template string, args ...interface{}) {
 }
 
 func (logger *Logger) BeautyJSON(bs []byte) {
-	if logger.level != debug {
+	if logger.level != verbose {
 		return
 	}
 

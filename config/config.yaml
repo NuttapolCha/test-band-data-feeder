@@ -1,15 +1,16 @@
 Log:
+  # 'info' or 'debug' or 'verbose'
   Level: "debug"
   
 ExternalAPIs:
   DataSource:
     # will retry requesting if error occurred while calling endpoint
-    RetryCount: 3
+    RetryCount: 1
     RequestPricingData: "https://interview-requester-source.herokuapp.com/request"
     GetPricingData: "https://interview-requester-source.herokuapp.com/request"
   Destination:
     # will retry requesting if error occurred while calling endpoint
-    RetryCount: 3
+    RetryCount: 1
     UpdatePricingData: "https://band-interview-destination.herokuapp.com/update"
     GetUpdatedPricingData: "https://band-interview-destination.herokuapp.com/get_price"
 
@@ -31,3 +32,5 @@ DataFeeder:
     - "ADA"
     - "DOGE"
     - "UST"
+    - "BAND"
+    - "ALPHA"

@@ -14,11 +14,11 @@ type App struct {
 	httpClient *connector.CustomHttpClient
 }
 
-func New(logger log.Logger) App {
+func New(logger log.Logger, httpClient *connector.CustomHttpClient) App {
 	return App{
 		logger:     logger,
 		ctx:        context.TODO(),
-		httpClient: connector.NewCustomHttpClient(logger),
+		httpClient: httpClient,
 	}
 }
 
