@@ -1,6 +1,6 @@
 Log:
   # 'info' or 'debug' or 'verbose'
-  Level: "debug"
+  Level: "info"
   
 ExternalAPIs:
   DataSource:

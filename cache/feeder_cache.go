@@ -40,7 +40,7 @@ func GetLatestPrice(symbol string) (*Pricing, error) {
 
 	pricing, ok := ltsp.m[symbol]
 	if !ok {
-		return nil, fmt.Errorf("not found pricing information for symbol %s", symbol)
+		return nil, fmt.Errorf("cache has not been inited")
 	}
 
 	return pricing, nil

@@ -56,7 +56,7 @@ func (app *App) isNeedUpdatePricingToDestination(
 	latestDataFromCache,
 	latestDataFromDst pricingWithTimestamp,
 	config *FeederConfig,
-) bool {
+) (is, immediatly bool) {
 	logger := app.logger
 
 	latestCacheTime := latestDataFromCache.GetTimestamp()
@@ -68,7 +68,7 @@ func (app *App) isNeedUpdatePricingToDestination(
 
 	if timeDiff >= config.maximumDelay {
 		logger.Infof("symbol %s has not send update longer than %vs and need to be updated", symbol, config.maximumDelay)
-		return true
+		return true, false
 	}
 
 	latestCachePrice := latestDataFromCache.GetPrice()
@@ -84,13 +84,12 @@ func (app *App) isNeedUpdatePricingToDestination(
 	logger.Debugf("price diff ratio of %s = %.4f", symbol, priceDiffRatio)
 
 	if priceDiffRatio > config.diffThreshold {
-		logger.Infof("symbol %s has difference grater than threshold %v and need to be updated imediatly", symbol, config.diffThreshold)
-		// TODO: immediatly means actually immediatly!!!
-		return true
+		logger.Infof("symbol %s has difference grater than threshold %v and need to be updated imediatly !!!", symbol, config.diffThreshold)
+		return true, true
 	}
 
 	logger.Infof("symbol %s no need to send update at destination because delay = %ds and diff ratio = %.4f", symbol, timeDiff, priceDiffRatio)
-	return false
+	return false, false
 }
 
 func (app *App) updatePricingToDestination(updatePricingParamsList []*UpdatePricingParams, config *FeederConfig) ([]string, error) {

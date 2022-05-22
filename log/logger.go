@@ -53,14 +53,14 @@ func (logger *Logger) Warnf(template string, args ...interface{}) {
 }
 
 func (logger *Logger) Debugf(template string, args ...interface{}) {
-	if logger.level != debug {
+	if logger.level < debug {
 		return
 	}
 	log.Printf("\033[0;35m[DEBUG]\033[0;37m "+template+"\n", args...)
 }
 
 func (logger *Logger) BeautyJSON(bs []byte) {
-	if logger.level != verbose {
+	if logger.level < verbose {
 		return
 	}
 

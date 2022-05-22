@@ -7,8 +7,6 @@ import (
 )
 
 type FeederConfig struct {
-	diffThreshold float64
-
 	// Symbols
 	symbols []string
 
@@ -25,6 +23,7 @@ type FeederConfig struct {
 	updatePricingDataEndpoint string
 	getUpdatedPricingData     string
 	maximumDelay              int64
+	diffThreshold             float64
 }
 
 var feederConfig *FeederConfig
@@ -34,7 +33,6 @@ func getFeederConfig() *FeederConfig {
 		feederConfig = &FeederConfig{
 			symbols:                    viper.GetStringSlice("DataFeeder.Symbols"),
 			waitTime:                   viper.GetDuration("DataFeeder.WaitTime"),
-			diffThreshold:              viper.GetFloat64("DataFeeder.DiffThreshold"),
 			dataSourceRetryCount:       viper.GetInt("ExternalAPIs.DataSource.RetryCount"),
 			requestPricingDataEndpoint: viper.GetString("ExternalAPIs.DataSource.RequestPricingData"),
 			getPricingDataEndpoint:     viper.GetString("ExternalAPIs.DataSource.GetPricingData"),
@@ -42,6 +40,7 @@ func getFeederConfig() *FeederConfig {
 			updatePricingDataEndpoint:  viper.GetString("ExternalAPIs.Destination.UpdatePricingData"),
 			getUpdatedPricingData:      viper.GetString("ExternalAPIs.Destination.GetUpdatedPricingData"),
 			maximumDelay:               viper.GetInt64("DataFeeder.MaximumDelay"),
+			diffThreshold:              viper.GetFloat64("DataFeeder.DiffThreshold"),
 		}
 	}
 	return feederConfig
