@@ -1,6 +1,6 @@
 Log:
   # 'info' or 'debug' or 'verbose'
-  Level: "verbose"
+  Level: "info"
   
 ExternalAPIs:
   DataSource:
@@ -18,7 +18,7 @@ DataFeeder:
   # will updates pricing to destination if (current time - updated destination time > 3600)
   MaximumDelay: 3600 
   # if current price is differ from latest price more than 0.1 then will update to destination immediatly
-  DiffThreshold: 0.0001
+  DiffThreshold: 0.1
   # get pricing from data source every 10 seconds
   Interval: 10 
   # wait time between request data source and getting the requested data source
@@ -30,7 +30,7 @@ DataFeeder:
     - "BTC"
     - "ETH"
     - "ADA"
-    # - "DOGE"
-    # - "UST"
-    # - "BAND"
-    # - "ALPHA"
+    - "DOGE"
+    - "UST"
+    - "BAND"
+    - "ALPHA"

@@ -8,10 +8,16 @@ import (
 // we might call pricingWithTimestamp a virtual database of this service
 type pricingWithTimestamp struct {
 	symbol string
-	price  float64
 
+	// TODO: must be destination price not previous price
+	price float64
+
+	// updateDstTime is a time at which we called for update destination service
 	updateDstTime int64
-	dstTime       int64
+
+	// dstTime is a timestamp appearred in update destination request body
+	// (i.e. time of symbol price)
+	dstTime int64
 }
 
 func (p *pricingWithTimestamp) GetSymbol() string {
@@ -67,50 +73,22 @@ func GetPrevUpdatedDstTime(symbol string) (int64, error) {
 	return pricing.updateDstTime, nil
 }
 
-func UpdatePricing(symbol string, price float64) error {
+func UpdatePricing(
+	symbol string,
+	price float64,
+	updateDstTime,
+	dstTime int64,
+) {
+	if symbol == "" {
+		panic("cannot update with empty string key")
+	}
 	ltsp.mu.Lock()
 	defer ltsp.mu.Unlock()
-
-	curr, ok := ltsp.m[symbol]
-	if ok {
-		ltsp.m[symbol] = &pricingWithTimestamp{
-			symbol:        symbol,
-			price:         price,
-			updateDstTime: curr.updateDstTime,
-			dstTime:       curr.dstTime,
-		}
-	} else {
-		ltsp.m[symbol] = &pricingWithTimestamp{
-			symbol: symbol,
-			price:  price,
-		}
-	}
-
-	return nil
-}
-
-// UpodateDstTime updates 2 timestamps.
-// 1. updateDstTime is a time at which we called for update destination service
-// 2. dstTime is a timestamp in 1.'s request body (i.e. time of symbol price)
-func UpdateDstTime(symbol string, updateDstTime, dstTime int64) error {
-	ltsp.mu.Lock()
-	defer ltsp.mu.Unlock()
-
-	curr, ok := ltsp.m[symbol]
-	if !ok {
-		return fmt.Errorf("not found %s in cache", symbol)
-	}
-
-	if symbol != curr.symbol {
-		panic("invalid symbol caching and this should not be occurred!")
-	}
 
 	ltsp.m[symbol] = &pricingWithTimestamp{
-		symbol:        curr.symbol,
-		price:         curr.price,
+		symbol:        symbol,
+		price:         price,
 		updateDstTime: updateDstTime,
 		dstTime:       dstTime,
 	}
-
-	return nil
 }

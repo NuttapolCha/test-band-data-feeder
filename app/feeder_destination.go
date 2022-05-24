@@ -105,12 +105,39 @@ func (app *App) isNeedUpdatePricingToDestination(
 	return false, false
 }
 
-func (app *App) updatePricingToDestination(updatePricingParamsList []*UpdatePricingParams, config *FeederConfig) ([]string, error) {
+func (app *App) updatePricingToDestination(symbolMapPricing map[string]pricing.Information, config *FeederConfig) ([]string, error) {
 	logger := app.logger
+	updatedSymbols := make([]string, 0, len(symbolMapPricing))
 
-	updatedSymbols := make([]string, 0, len(updatePricingParamsList))
-	symbolMapTimestamp := make(map[string]int64)
+	// endpoint required request body classified by timestamp
+	timestampMapPricingList := make(map[int64][]pricing.Information)
 
+	for symbol, info := range symbolMapPricing {
+		timestampMapPricingList[info.GetTimestamp()] = append(
+			timestampMapPricingList[info.GetTimestamp()],
+			symbolMapPricing[symbol],
+		)
+	}
+
+	updatePricingParamsList := make([]*UpdatePricingParams, 0)
+	for timestamp, pricingList := range timestampMapPricingList {
+		// we should classify data by timestamp first
+		toUpdatedSymbols := []string{}
+		toUpdatedPrices := []float64{}
+		for _, info := range pricingList {
+			toUpdatedSymbols = append(toUpdatedSymbols, info.GetSymbol())
+			toUpdatedPrices = append(toUpdatedPrices, info.GetPrice())
+		}
+
+		// then we can append to request payloads
+		updatePricingParamsList = append(updatePricingParamsList, &UpdatePricingParams{
+			Symbols:   toUpdatedSymbols,
+			Prices:    toUpdatedPrices,
+			Timestamp: timestamp,
+		})
+	}
+
+	// start request update to destination
 	var err error
 	for _, params := range updatePricingParamsList {
 		var reqBody []byte
@@ -129,16 +156,44 @@ func (app *App) updatePricingToDestination(updatePricingParamsList []*UpdatePric
 		updatedSymbols = append(updatedSymbols, params.Symbols...)
 		logger.Infof("successfully updated pricing information of %+v prices %+v at timestamp %v", params.Symbols, params.Prices, params.Timestamp)
 
-		// memorized destination timestamp
-		for _, symbol := range params.Symbols {
-			symbolMapTimestamp[symbol] = params.Timestamp
-		}
 	}
 
 	updateDstTime := time.Now().Unix()
+	// cache new current pricing after retreived previous pricing
 	for _, symbol := range updatedSymbols {
-		if err := cache.UpdateDstTime(symbol, updateDstTime, symbolMapTimestamp[symbol]); err != nil {
-			logger.Errorf("could not update destination timestamp to cache of %s because: %v", symbol, err)
+		cache.UpdatePricing(
+			symbol,
+			symbolMapPricing[symbol].GetPrice(),
+			updateDstTime,
+			symbolMapPricing[symbol].GetTimestamp(),
+		)
+	}
+
+	// recheck destination by query its latest pricing
+	if config.enableRecheck {
+		for _, symbol := range updatedSymbols {
+			currPricing, err := cache.GetPricing(symbol)
+			if err != nil {
+				logger.Errorf("RECHECKING: could not get pricing information of %s from cache because: %v", symbol, err)
+				continue
+			}
+			dstPricing, err := app.getPricingFromDst(symbol, config)
+			if err != nil {
+				logger.Errorf("RECHECKING: could not get pricing information of %s from destination because: %v", symbol, err)
+				continue
+			}
+			if !pricing.Equal(currPricing, dstPricing) {
+				logger.Errorf("REHECKING: current pricing of %s is not equal to updated destination pricing", symbol)
+				logger.Debugf(`symbol: %s currSymbol = %s dstSymbol = %s, 
+						currPrice = %f dstPrice = %v, 
+						currTime = %d dstTime = %d`,
+					symbol, currPricing.GetSymbol(), dstPricing.GetSymbol(),
+					currPricing.GetPrice(), dstPricing.GetPrice(),
+					currPricing.GetTimestamp(), dstPricing.GetTimestamp(),
+				)
+			} else {
+				logger.Infof("pricing of %s has been rechecked and confirmed", symbol)
+			}
 		}
 	}
 

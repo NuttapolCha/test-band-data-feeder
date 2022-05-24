@@ -81,8 +81,7 @@ func (app *App) getDataAndFeed() {
 	}
 
 	// declare variables related to updating pricing to destination
-	timestampMapPricing := make(map[int64][]pricing.Information)
-	mustUpdatePricingList := make([]*UpdatePricingParams, 0)
+	symbolMapPricing := make(map[string]pricing.Information)
 
 	// check for each symbol need to update to destination or not
 	for _, currPricing := range pricingResults {
@@ -93,7 +92,7 @@ func (app *App) getDataAndFeed() {
 		symbol := currPricing.Symbol
 		prevPricing, err := cache.GetPricing(symbol)
 		if err != nil {
-			logger.Infof("no previous pricing information found in cache, results in need update to destination")
+			logger.Infof("no previous pricing information found in cache, need update to destination")
 			is = true
 			goto sendToDestination
 		}
@@ -106,94 +105,36 @@ func (app *App) getDataAndFeed() {
 		is, immediatly = app.isNeedUpdatePricingToDestination(prevUpdateDstTime, prevPricing, currPricing, config)
 		if immediatly {
 			// force update this symbol now (we cannot wait)
+			done := make(chan struct{})
 			go func(symbol string, price float64) {
-				updatedSymbol, err := app.updatePricingToDestination([]*UpdatePricingParams{
-					{
-						Symbols:   []string{symbol},
-						Prices:    []float64{price},
-						Timestamp: currPricing.GetTimestamp(),
-					},
-				}, config)
+				urgentMap := map[string]pricing.Information{
+					symbol: currPricing,
+				}
+				updatedSymbol, err := app.updatePricingToDestination(urgentMap, config)
 				if err != nil {
 					logger.Errorf("could not update %s pricing to destination immediatly because: %v", symbol, err)
 					return
 				}
 				logger.Infof("successfully updated %+v pricing to destination immediatly", updatedSymbol)
 
-				// TODO: might refactor this section because function called is duplicated below
-				// cache new current pricing after retreived previous pricing
-				if err := cache.UpdatePricing(symbol, currPricing.GetPrice()); err != nil {
-					logger.Warnf("could not cache current pricing of %s because: %v", symbol, err)
-				}
+				done <- struct{}{}
 			}(currPricing.GetSymbol(), currPricing.GetPrice())
 
+			<-done
 			continue
 		}
 
 	sendToDestination:
 		if is {
-			timestampMapPricing[currPricing.GetTimestamp()] = append(
-				timestampMapPricing[currPricing.GetTimestamp()],
-				currPricing,
-			)
+			symbolMapPricing[symbol] = currPricing
 		}
-
-		// cache new current pricing after retreived previous pricing
-		if err := cache.UpdatePricing(symbol, currPricing.GetPrice()); err != nil {
-			logger.Warnf("could not cache current pricing of %s because: %v", symbol, err)
-		}
-	}
-
-	// append to mustUpdatePricingList
-	for t, pricingList := range timestampMapPricing {
-		// separate each fields to 2 slices
-		prices := make([]float64, 0, len(pricingList))
-		symbols := make([]string, 0, len(pricingList))
-		for _, pricingInfo := range pricingList {
-			prices = append(prices, pricingInfo.GetPrice())
-			symbols = append(symbols, pricingInfo.GetSymbol())
-		}
-
-		mustUpdatePricingList = append(mustUpdatePricingList, &UpdatePricingParams{
-			Symbols:   symbols,
-			Prices:    prices,
-			Timestamp: t,
-		})
 	}
 
 	// update pricing to destination
-	updatedSymbols, err := app.updatePricingToDestination(mustUpdatePricingList, config)
+	updatedSymbols, err := app.updatePricingToDestination(symbolMapPricing, config)
 	if err != nil {
 		logger.Errorf("update pricing to destination not completed because: %v", err)
 		return
 	}
 	logger.Infof("updated symbols for this interval are %+v", updatedSymbols)
-
-	// recheck destination by query its latest pricing
-	if config.enableRecheck {
-		for _, symbol := range updatedSymbols {
-			currPricing, err := cache.GetPricing(symbol)
-			if err != nil {
-				logger.Errorf("RECHECKING: could not get pricing information of %s from cache because: %v", symbol, err)
-				continue
-			}
-			dstPricing, err := app.getPricingFromDst(symbol, config)
-			if err != nil {
-				logger.Errorf("RECHECKING: could not get pricing information of %s from destination because: %v", symbol, err)
-				continue
-			}
-			if !pricing.Equal(currPricing, dstPricing) {
-				logger.Errorf("REHECKING: current pricing of %s is not equal to updated destination pricing", symbol)
-				logger.Debugf(`symbol: %s currSymbol = %s dstSymbol = %s, 
-						currPrice = %f dstPrice = %v, 
-						currTime = %d dstTime = %d`,
-					symbol, currPricing.GetSymbol(), dstPricing.GetSymbol(),
-					currPricing.GetPrice(), dstPricing.GetPrice(),
-					currPricing.GetTimestamp(), dstPricing.GetTimestamp(),
-				)
-			} else {
-				logger.Infof("pricing of %s has been rechecked and confirmed", symbol)
-			}
-		}
-	}
 }
