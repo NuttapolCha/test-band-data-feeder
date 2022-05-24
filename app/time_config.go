@@ -7,8 +7,7 @@ import (
 )
 
 type TimeConfig struct {
-	dataSourceInterval  time.Duration
-	destinationInterval time.Duration
+	interval time.Duration
 }
 
 var timeConfig *TimeConfig
@@ -16,8 +15,10 @@ var timeConfig *TimeConfig
 func getTimeConfig() *TimeConfig {
 	if timeConfig == nil {
 		timeConfig = &TimeConfig{
-			dataSourceInterval:  viper.GetDuration("DataFeeder.DataSourceInterval") * time.Second,
-			destinationInterval: viper.GetDuration("DataFeeder.DestinationInterval") * time.Second,
+			interval: viper.GetDuration("DataFeeder.Interval") * time.Second,
+		}
+		if timeConfig.interval == 0 {
+			timeConfig.interval = 10 * time.Second
 		}
 	}
 	return timeConfig

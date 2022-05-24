@@ -15,16 +15,16 @@ ExternalAPIs:
     GetUpdatedPricingData: "https://band-interview-destination.herokuapp.com/get_price"
 
 DataFeeder:
-  # will updates pricing to destination if no previous update longer than 3600 seconds
-  MaximumDelay: 3600 
+  # will updates pricing to destination if (current time - updated destination time > 3600)
+  MaximumDelay: 3600
   # if current price is differ from latest price more than 0.1 then will update to destination immediatly
   DiffThreshold: 0.1
-  # get new pricing every 10 seconds
-  DataSourceInterval: 10 
-  # check if we need to update to destination every 10 seconds
-  DestinationInterval: 10
-  # before getting the requested pricing
+  # get pricing from data source every 10 seconds
+  Interval: 10 
+  # wait time between request data source and getting the requested data source
   WaitTime: 5 
+  # should recheck updated pricing to destination or not?
+  EnableRecheck: true
   # will feed these symbols to destination
   Symbols:
     - "BTC"

@@ -1,0 +1,60 @@
+@startuml Simple Data Feeder Service
+
+title Simple Data Feeder Service
+
+participant "Data-Source" as dataSource
+actor "Data-Feeder (this)" as this
+database "Cache" as cache
+participant "Destination-Service" as destination
+
+this -> this: process awake
+this -> dataSource: POST request coins pricing information
+dataSource --> this: 200 OK {request_id}
+this -> this: wait 5 seconds
+this -> dataSource: GET get data with {request_id}
+dataSource --> this: 200 OK {current_pricing}
+
+note right
+    If we got unexpected response status code in any requests
+    then we have retry after 1 second and its counts are configurable.
+end note
+
+group loop for each symbol
+    this -> cache: get previous updated pricing at destination by symbol
+    cache --> this: {previous_pricing}
+    note right
+        If no cache store, i.e. on service starting.
+        We treat like we have not update pricing to destination
+        longer than 1 hour.
+        
+        In other words, the first accquired data from source
+        are always be sent to the destination.
+    end note
+    this -> this: compare {previous_pricing} and {current_pricing}
+
+    alt we have not update pricing to destination longer than 1 hour
+        this -> this: append to updating list
+    else difference pricing ratio is grater than 0.1
+        this -> destination: POST update pricing information
+        destination --> this: 200 OK
+        this -> cache: update latest destination pricing information
+        this -> destination: GET pricing information
+        destination --> this: pricing information
+        this -> this: compare destination pricing and current pricing\nto make sure we have completly update
+    end
+end
+
+this -> this: classified each data payload by timestamp\nusing the allocated array
+
+group loop for each updating list
+    this -> destination: POST update pricing information
+    destination --> this: 200 OK
+    this -> cache: update latest destination pricing information
+    this -> destination: GET pricing information
+    destination --> this: pricing information
+    this -> this: compare destination pricing and current pricing\nto make sure we have completly update
+end
+
+this -> this: process done
+
+@enduml
