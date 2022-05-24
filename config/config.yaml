@@ -16,7 +16,7 @@ ExternalAPIs:
 
 DataFeeder:
   # will updates pricing to destination if (current time - updated destination time > 3600)
-  MaximumDelay: 3600 
+  MaximumDelay: 30
   # if current price is differ from latest price more than 0.1 then will update to destination immediatly
   DiffThreshold: 0.1
   # get pricing from data source every 10 seconds
