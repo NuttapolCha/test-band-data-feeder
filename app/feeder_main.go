@@ -39,6 +39,13 @@ func (app *App) StartDataAutomaticFeeder() error {
 	return nil
 }
 
+// Feed called by cmd and run only once.
+func (app *App) Feed() {
+	logger := app.logger
+	logger.Infof("Feed is starting")
+	app.getDataAndFeed()
+}
+
 func (app *App) getDataAndFeed() {
 	logger := app.logger
 
@@ -80,6 +87,8 @@ func (app *App) getDataAndFeed() {
 	// check for each symbol need to update to destination or not
 	for _, currPricing := range pricingResults {
 		var is, immediatly bool
+		var prevUpdateDstTime int64
+		var err error
 
 		symbol := currPricing.Symbol
 		prevPricing, err := cache.GetPricing(symbol)
@@ -88,8 +97,13 @@ func (app *App) getDataAndFeed() {
 			is = true
 			goto sendToDestination
 		}
+		prevUpdateDstTime, err = cache.GetPrevUpdatedDstTime(symbol)
+		if err != nil {
+			logger.Errorf("could not get previous updated destination time of %s because: %v", symbol, err)
+			return
+		}
 
-		is, immediatly = app.isNeedUpdatePricingToDestination(prevPricing, currPricing, config)
+		is, immediatly = app.isNeedUpdatePricingToDestination(prevUpdateDstTime, prevPricing, currPricing, config)
 		if immediatly {
 			// force update this symbol now (we cannot wait)
 			go func(symbol string, price float64) {
@@ -155,5 +169,31 @@ func (app *App) getDataAndFeed() {
 	}
 	logger.Infof("updated symbols for this interval are %+v", updatedSymbols)
 
-	// TODO: recheck destination by query its latest pricing
+	// recheck destination by query its latest pricing
+	if config.enableRecheck {
+		for _, symbol := range updatedSymbols {
+			currPricing, err := cache.GetPricing(symbol)
+			if err != nil {
+				logger.Errorf("RECHECKING: could not get pricing information of %s from cache because: %v", symbol, err)
+				continue
+			}
+			dstPricing, err := app.getPricingFromDst(symbol, config)
+			if err != nil {
+				logger.Errorf("RECHECKING: could not get pricing information of %s from destination because: %v", symbol, err)
+				continue
+			}
+			if !pricing.Equal(currPricing, dstPricing) {
+				logger.Errorf("REHECKING: current pricing of %s is not equal to updated destination pricing", symbol)
+				logger.Debugf(`symbol: %s currSymbol = %s dstSymbol = %s, 
+						currPrice = %f dstPrice = %v, 
+						currTime = %d dstTime = %d`,
+					symbol, currPricing.GetSymbol(), dstPricing.GetSymbol(),
+					currPricing.GetPrice(), dstPricing.GetPrice(),
+					currPricing.GetTimestamp(), dstPricing.GetTimestamp(),
+				)
+			} else {
+				logger.Infof("pricing of %s has been rechecked and confirmed", symbol)
+			}
+		}
+	}
 }

@@ -24,6 +24,7 @@ type FeederConfig struct {
 	getUpdatedPricingData     string
 	maximumDelay              int64
 	diffThreshold             float64
+	enableRecheck             bool
 }
 
 var feederConfig *FeederConfig
@@ -41,6 +42,7 @@ func getFeederConfig() *FeederConfig {
 			getUpdatedPricingData:      viper.GetString("ExternalAPIs.Destination.GetUpdatedPricingData"),
 			maximumDelay:               viper.GetInt64("DataFeeder.MaximumDelay"),
 			diffThreshold:              viper.GetFloat64("DataFeeder.DiffThreshold"),
+			enableRecheck:              viper.GetBool("DataFeeder.EnableRecheck"),
 		}
 	}
 	return feederConfig

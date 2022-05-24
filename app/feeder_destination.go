@@ -18,6 +18,12 @@ type UpdatePricingParams struct {
 type DestinationPricingResp struct {
 	Price      float64 `json:"price"`
 	LastUpdate int64   `json:"last_update"`
+
+	symbol string `json:"-"`
+}
+
+func (p *DestinationPricingResp) GetSymbol() string {
+	return p.symbol
 }
 
 func (p *DestinationPricingResp) GetPrice() float64 {
@@ -44,6 +50,7 @@ func (app *App) getPricingFromDst(symbol string, config *FeederConfig) (*Destina
 		logger.Errorf("could not unmarshal destination pricing body into GO struct because: %v", err)
 		return nil, err
 	}
+	ret.symbol = symbol
 
 	return ret, nil
 }
@@ -52,6 +59,7 @@ func (app *App) getPricingFromDst(symbol string, config *FeederConfig) (*Destina
 // 1. no new update than 1 hour (configurable)
 // 2. price difference is more than threshold 0.1 (configurable)
 func (app *App) isNeedUpdatePricingToDestination(
+	prevUpdateDstTime int64,
 	prevPricing,
 	currPricing pricing.Information,
 	config *FeederConfig,
@@ -65,10 +73,9 @@ func (app *App) isNeedUpdatePricingToDestination(
 		panic(errMsg)
 	}
 
-	prevTime := prevPricing.GetTimestamp()
 	currTime := time.Now().Unix()
-	timeDiff := currTime - prevTime
-	logger.Debugf("previous cache time of %s = %v", symbol, prevTime)
+	timeDiff := currTime - prevUpdateDstTime
+	logger.Debugf("previous cache time of %s = %v", symbol, prevUpdateDstTime)
 	logger.Debugf("current time = %v", currTime)
 	logger.Debugf("time diff of %s = %v", symbol, time.Duration(timeDiff)*time.Second)
 
@@ -102,6 +109,7 @@ func (app *App) updatePricingToDestination(updatePricingParamsList []*UpdatePric
 	logger := app.logger
 
 	updatedSymbols := make([]string, 0, len(updatePricingParamsList))
+	symbolMapTimestamp := make(map[string]int64)
 
 	var err error
 	for _, params := range updatePricingParamsList {
@@ -120,11 +128,16 @@ func (app *App) updatePricingToDestination(updatePricingParamsList []*UpdatePric
 		}
 		updatedSymbols = append(updatedSymbols, params.Symbols...)
 		logger.Infof("successfully updated pricing information of %+v prices %+v at timestamp %v", params.Symbols, params.Prices, params.Timestamp)
+
+		// memorized destination timestamp
+		for _, symbol := range params.Symbols {
+			symbolMapTimestamp[symbol] = params.Timestamp
+		}
 	}
 
-	dstTime := time.Now().Unix()
+	updateDstTime := time.Now().Unix()
 	for _, symbol := range updatedSymbols {
-		if err := cache.UpdateDstTime(symbol, dstTime); err != nil {
+		if err := cache.UpdateDstTime(symbol, updateDstTime, symbolMapTimestamp[symbol]); err != nil {
 			logger.Errorf("could not update destination timestamp to cache of %s because: %v", symbol, err)
 		}
 	}

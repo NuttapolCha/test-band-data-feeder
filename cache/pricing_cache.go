@@ -10,7 +10,8 @@ type pricingWithTimestamp struct {
 	symbol string
 	price  float64
 
-	latestupdatedAtDst int64
+	updateDstTime int64
+	dstTime       int64
 }
 
 func (p *pricingWithTimestamp) GetSymbol() string {
@@ -22,7 +23,7 @@ func (p *pricingWithTimestamp) GetPrice() float64 {
 }
 
 func (p *pricingWithTimestamp) GetTimestamp() int64 {
-	return p.latestupdatedAtDst
+	return p.dstTime
 }
 
 type symbolMapPricing map[string]*pricingWithTimestamp
@@ -54,6 +55,18 @@ func GetPricing(symbol string) (*pricingWithTimestamp, error) {
 	return pricing, nil
 }
 
+func GetPrevUpdatedDstTime(symbol string) (int64, error) {
+	ltsp.mu.Lock()
+	defer ltsp.mu.Unlock()
+
+	pricing, ok := ltsp.m[symbol]
+	if !ok {
+		return 0, fmt.Errorf("cache has not been inited")
+	}
+
+	return pricing.updateDstTime, nil
+}
+
 func UpdatePricing(symbol string, price float64) error {
 	ltsp.mu.Lock()
 	defer ltsp.mu.Unlock()
@@ -61,9 +74,10 @@ func UpdatePricing(symbol string, price float64) error {
 	curr, ok := ltsp.m[symbol]
 	if ok {
 		ltsp.m[symbol] = &pricingWithTimestamp{
-			symbol:             symbol,
-			price:              price,
-			latestupdatedAtDst: curr.latestupdatedAtDst,
+			symbol:        symbol,
+			price:         price,
+			updateDstTime: curr.updateDstTime,
+			dstTime:       curr.dstTime,
 		}
 	} else {
 		ltsp.m[symbol] = &pricingWithTimestamp{
@@ -75,7 +89,10 @@ func UpdatePricing(symbol string, price float64) error {
 	return nil
 }
 
-func UpdateDstTime(symbol string, timestamp int64) error {
+// UpodateDstTime updates 2 timestamps.
+// 1. updateDstTime is a time at which we called for update destination service
+// 2. dstTime is a timestamp in 1.'s request body (i.e. time of symbol price)
+func UpdateDstTime(symbol string, updateDstTime, dstTime int64) error {
 	ltsp.mu.Lock()
 	defer ltsp.mu.Unlock()
 
@@ -89,9 +106,10 @@ func UpdateDstTime(symbol string, timestamp int64) error {
 	}
 
 	ltsp.m[symbol] = &pricingWithTimestamp{
-		symbol:             curr.symbol,
-		price:              curr.price,
-		latestupdatedAtDst: timestamp,
+		symbol:        curr.symbol,
+		price:         curr.price,
+		updateDstTime: updateDstTime,
+		dstTime:       dstTime,
 	}
 
 	return nil

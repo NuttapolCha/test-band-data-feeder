@@ -1,6 +1,6 @@
 Log:
   # 'info' or 'debug' or 'verbose'
-  Level: "info"
+  Level: "verbose"
   
 ExternalAPIs:
   DataSource:
@@ -15,20 +15,22 @@ ExternalAPIs:
     GetUpdatedPricingData: "https://band-interview-destination.herokuapp.com/get_price"
 
 DataFeeder:
-  # will updates pricing to destination if no previous update longer than 3600 seconds
+  # will updates pricing to destination if (current time - updated destination time > 3600)
   MaximumDelay: 3600 
   # if current price is differ from latest price more than 0.1 then will update to destination immediatly
-  DiffThreshold: 0.1
-  # get new pricing every 10 seconds
+  DiffThreshold: 0.0001
+  # get pricing from data source every 10 seconds
   Interval: 10 
-  # before getting the requested pricing
+  # wait time between request data source and getting the requested data source
   WaitTime: 5 
+  # should recheck updated pricing to destination or not?
+  EnableRecheck: true
   # will feed these symbols to destination
   Symbols:
     - "BTC"
     - "ETH"
     - "ADA"
-    - "DOGE"
-    - "UST"
-    - "BAND"
-    - "ALPHA"
+    # - "DOGE"
+    # - "UST"
+    # - "BAND"
+    # - "ALPHA"
