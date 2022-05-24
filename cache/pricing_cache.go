@@ -9,7 +9,7 @@ import (
 type pricingWithTimestamp struct {
 	symbol string
 
-	// TODO: must be destination price not previous price
+	// price is the latest price we known at destination
 	price float64
 
 	// updateDstTime is a time at which we called for update destination service

@@ -55,6 +55,7 @@ func (c *CustomHttpClient) Get(endpoint string, queryStr map[string]string, retr
 			time.Sleep(1 * time.Second)
 			continue
 		}
+		defer resp.Body.Close()
 
 		respBody, err = c.resolveRespResult(resp)
 		if err != nil {
@@ -92,6 +93,7 @@ func (c *CustomHttpClient) PostJSON(endpoint string, body []byte, retryCount int
 			time.Sleep(1 * time.Second)
 			continue
 		}
+		defer resp.Body.Close()
 
 		respBody, err = c.resolveRespResult(resp)
 		if err != nil {

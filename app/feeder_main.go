@@ -136,5 +136,5 @@ func (app *App) getDataAndFeed() {
 		logger.Errorf("update pricing to destination not completed because: %v", err)
 		return
 	}
-	logger.Infof("updated symbols for this interval are %+v", updatedSymbols)
+	logger.Infof("updated symbols for this interval (exclude immediatly sent) are %+v", updatedSymbols)
 }

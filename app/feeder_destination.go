@@ -86,7 +86,7 @@ func (app *App) isNeedUpdatePricingToDestination(
 
 	prevPrice := prevPricing.GetPrice()
 	currPrice := currPricing.GetPrice()
-	logger.Debugf("preious price of %s = %f", symbol, prevPrice)
+	logger.Debugf("previous price of %s = %f", symbol, prevPrice)
 	logger.Debugf("current price of %s = %f", symbol, currPrice)
 
 	// use absolute value
@@ -161,6 +161,7 @@ func (app *App) updatePricingToDestination(symbolMapPricing map[string]pricing.I
 	updateDstTime := time.Now().Unix()
 	// cache new current pricing after retreived previous pricing
 	for _, symbol := range updatedSymbols {
+		logger.Debugf("update cache information of %s", symbol)
 		cache.UpdatePricing(
 			symbol,
 			symbolMapPricing[symbol].GetPrice(),
