@@ -17,6 +17,9 @@ func getTimeConfig() *TimeConfig {
 		timeConfig = &TimeConfig{
 			interval: viper.GetDuration("DataFeeder.Interval") * time.Second,
 		}
+		if timeConfig.interval == 0 {
+			timeConfig.interval = 10 * time.Second
+		}
 	}
 	return timeConfig
 }

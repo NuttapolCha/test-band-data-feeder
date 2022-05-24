@@ -71,7 +71,7 @@ func (app *App) getDataAndFeed() {
 	}
 
 	// some delay before getting the requested priceing
-	time.Sleep(config.waitTime * time.Second)
+	time.Sleep(config.waitTime)
 
 	// get pricing data from the requested
 	pricingResults, err := app.getRequestedPricingFromSource(reqId, config)
