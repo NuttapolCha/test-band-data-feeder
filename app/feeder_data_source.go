@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
-
-	"github.com/NuttapolCha/test-band-data-feeder/cache"
 )
 
 type RequestPricingDataSourceParams struct {
@@ -24,8 +22,32 @@ type PricingResult struct {
 	Symbol      string `json:"symbol"`
 }
 
+func (p *PricingResult) GetSymbol() string {
+	return p.Symbol
+}
+
+func (p *PricingResult) GetPrice() float64 {
+	multipliedPrice, err := strconv.ParseFloat(p.Px, 64)
+	if err != nil {
+		panic(err)
+	}
+	multiplier, err := strconv.ParseFloat(p.Multiplier, 64)
+	if err != nil {
+		panic(err)
+	}
+	return multipliedPrice / multiplier
+}
+
+func (p *PricingResult) GetTimestamp() int64 {
+	t, err := strconv.ParseInt(p.ResolveTime, 10, 64)
+	if err != nil {
+		panic(err)
+	}
+	return t
+}
+
 type PricingResultResp struct {
-	PricingResults []PricingResult `json:"price_results"`
+	PricingResults []*PricingResult `json:"price_results"`
 }
 
 func (app *App) requestPricingFromSource(config *FeederConfig) (int, error) {
@@ -53,7 +75,7 @@ func (app *App) requestPricingFromSource(config *FeederConfig) (int, error) {
 	return ref.ID, nil
 }
 
-func (app *App) getRequestedPricingFromSource(reqId int, config *FeederConfig) ([]PricingResult, error) {
+func (app *App) getRequestedPricingFromSource(reqId int, config *FeederConfig) ([]*PricingResult, error) {
 	logger := app.logger
 
 	pricingEndpoint := fmt.Sprintf("%s/%d", config.getPricingDataEndpoint, reqId)
@@ -70,37 +92,4 @@ func (app *App) getRequestedPricingFromSource(reqId int, config *FeederConfig) (
 	}
 
 	return pricingResp.PricingResults, nil
-}
-
-func (app *App) cachePricingResults(results []PricingResult) error {
-	logger := app.logger
-
-	for _, pricing := range results {
-		multipliedPrice, err := strconv.ParseFloat(pricing.Px, 64)
-		if err != nil {
-			logger.Errorf("could not parse Px: %s to float64 because: %v", pricing.Px, err)
-			return err
-		}
-		multiplier, err := strconv.ParseFloat(pricing.Multiplier, 64)
-		if err != nil {
-			logger.Errorf("could not parse Multiplier: %s to float64 because: %v", pricing.Px, err)
-			return err
-		}
-		updatedTime, err := strconv.ParseInt(pricing.ResolveTime, 10, 64)
-		if err != nil {
-			logger.Errorf("could not parse ResolveTime: %s to int64 because: %v", pricing.ResolveTime, err)
-			return err
-		}
-
-		price := multipliedPrice / multiplier
-		logger.Infof("caching price of %s = %.4f USD", pricing.Symbol, price)
-
-		err = cache.UpdatePriceInfo(pricing.Symbol, price, updatedTime)
-		if err != nil {
-			logger.Errorf("could not update price info of %s at %d because: %v", pricing.Symbol, updatedTime, err)
-			return err
-		}
-	}
-
-	return nil
 }

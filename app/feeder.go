@@ -8,12 +8,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/NuttapolCha/test-band-data-feeder/app/pricing"
 	"github.com/NuttapolCha/test-band-data-feeder/cache"
 )
 
 var (
-	dataSourceLock  sync.Mutex
-	destinationLock sync.Mutex
+	dataSourceLock sync.Mutex
 )
 
 func (app *App) StartDataAutomaticFeeder() error {
@@ -23,8 +23,7 @@ func (app *App) StartDataAutomaticFeeder() error {
 	logger.Infof("Data Automatic Feeder is starting")
 
 	tickers := []*time.Ticker{
-		schedule(app.getDataFromSource, config.dataSourceInterval),
-		schedule(app.updateDataToDestination, config.destinationInterval),
+		schedule(app.getDataAndFeed, config.interval),
 	}
 
 	quitChannel := make(chan os.Signal, 1)
@@ -38,7 +37,7 @@ func (app *App) StartDataAutomaticFeeder() error {
 	return nil
 }
 
-func (app *App) getDataFromSource() {
+func (app *App) getDataAndFeed() {
 	logger := app.logger
 
 	dataSourceLock.Lock()
@@ -72,119 +71,87 @@ func (app *App) getDataFromSource() {
 		return
 	}
 
-	// caching accquired pricing results to memory
-	err = app.cachePricingResults(pricingResults)
-	if err != nil {
-		logger.Errorf("could not cache pricing results to memory because: %v", err)
-		return
-	}
-}
-
-func (app *App) updateDataToDestination() {
-	logger := app.logger
-
-	destinationLock.Lock()
-	defer destinationLock.Unlock()
-	logger.Debugf("checking if we needed to update pricing to destination..")
-
-	defer func() {
-		if r := recover(); r != nil {
-			logger.Errorf("panic and recover because: %v", r)
-			logger.Debugf("debug stack = %s", debug.Stack())
-		}
-	}()
-
-	config := getFeederConfig()
-
-	// mustUpdatePricingList describes pricing that needed to send update at destination
-	// because it meet 1 of 2 conditions.
-	// 1. no new update than 1 hour (configurable)
-	// 2. pricing difference is more than threshold 0.1 (configurable)
+	// declare variables related to updating pricing to destination
+	timestampMapPricing := make(map[int64][]pricing.Information)
 	mustUpdatePricingList := make([]*UpdatePricingParams, 0)
 
-	type pair struct {
-		symbol string
-		price  float64
-	}
-	timestampMapSymbolPricing := make(map[int64][]pair)
+	// check for each symbol need to update to destination or not
+	for _, currPricing := range pricingResults {
+		var is, immediatly bool
 
-	for _, symbol := range config.symbols {
-		// get latest price from cache
-		latestPriceFromCache, err := cache.GetLatestPrice(symbol)
+		symbol := currPricing.Symbol
+		prevPricing, err := cache.GetPricing(symbol)
 		if err != nil {
-			logger.Infof("could not get latest price of %s from cache because: %v, will auto retry in a few moments", symbol, err)
-			return
-		}
-		logger.Debugf("%s last update at %d price = %.4f", symbol, latestPriceFromCache.GetTimestamp(), latestPriceFromCache.GetPrice())
-
-		// get latest price from destination
-		// TODO: we no need to call endpoint everytime we checking
-		// try memorization instead
-		latestPriceFromDst, err := app.getLatestPriceFromDestination(symbol, config)
-		if err != nil {
-			logger.Warnf("could not get latest price of %s from destinationn because: %v", symbol, err)
-			logger.Warnf("destination maybe never received %s information before and need to send update", symbol)
-			latestPriceFromDst = new(DestinationPricingResp)
+			logger.Infof("no previous pricing information found in cache, results in need update to destination")
+			is = true
+			goto sendToDestination
 		}
 
-		// prepare data for update classified by timestamp
-		is, immediatly := app.isNeedUpdatePricingToDestination(symbol, latestPriceFromCache, latestPriceFromDst, config)
-		latestTimestamp := latestPriceFromCache.GetTimestamp()
-		latestPrice := latestPriceFromCache.GetPrice()
-
-		// immediatly means immediatly
+		is, immediatly = app.isNeedUpdatePricingToDestination(prevPricing, currPricing, config)
 		if immediatly {
-			go func() {
-				updatedSymbols, err := app.updatePricingToDestination([]*UpdatePricingParams{
+			// force update this symbol now (we cannot wait)
+			go func(symbol string, price float64) {
+				updatedSymbol, err := app.updatePricingToDestination([]*UpdatePricingParams{
 					{
 						Symbols:   []string{symbol},
-						Prices:    []float64{latestPrice},
-						Timestamp: latestTimestamp,
+						Prices:    []float64{price},
+						Timestamp: currPricing.GetTimestamp(),
 					},
 				}, config)
 				if err != nil {
-					logger.Errorf("could not update pricing to destination immediatly because: %v", err)
+					logger.Errorf("could not update %s pricing to destination immediatly because: %v", symbol, err)
 					return
 				}
-				logger.Infof("successfully update pricing to destination immediatly, symbol = %+v", updatedSymbols)
-			}()
+				logger.Infof("successfully updated %+v pricing to destination immediatly", updatedSymbol)
+
+				// TODO: might refactor this section because function called is duplicated below
+				// cache new current pricing after retreived previous pricing
+				if err := cache.UpdatePricing(symbol, currPricing.GetPrice()); err != nil {
+					logger.Warnf("could not cache current pricing of %s because: %v", symbol, err)
+				}
+			}(currPricing.GetSymbol(), currPricing.GetPrice())
+
 			continue
 		}
 
-		// is means not immediatly, will update along with other symbols
+	sendToDestination:
 		if is {
-			timestampMapSymbolPricing[latestTimestamp] = append(
-				timestampMapSymbolPricing[latestTimestamp],
-				pair{
-					symbol: symbol,
-					price:  latestPrice,
-				},
+			timestampMapPricing[currPricing.GetTimestamp()] = append(
+				timestampMapPricing[currPricing.GetTimestamp()],
+				currPricing,
 			)
+		}
+
+		// cache new current pricing after retreived previous pricing
+		if err := cache.UpdatePricing(symbol, currPricing.GetPrice()); err != nil {
+			logger.Warnf("could not cache current pricing of %s because: %v", symbol, err)
 		}
 	}
 
 	// append to mustUpdatePricingList
-	for latestTimestamp, symbolPricePairs := range timestampMapSymbolPricing {
+	for t, pricingList := range timestampMapPricing {
 		// separate each fields to 2 slices
-		prices := make([]float64, 0, len(symbolPricePairs))
-		symbols := make([]string, 0, len(symbolPricePairs))
-		for _, symbolPricePair := range symbolPricePairs {
-			prices = append(prices, symbolPricePair.price)
-			symbols = append(symbols, symbolPricePair.symbol)
+		prices := make([]float64, 0, len(pricingList))
+		symbols := make([]string, 0, len(pricingList))
+		for _, pricingInfo := range pricingList {
+			prices = append(prices, pricingInfo.GetPrice())
+			symbols = append(symbols, pricingInfo.GetSymbol())
 		}
 
 		mustUpdatePricingList = append(mustUpdatePricingList, &UpdatePricingParams{
 			Symbols:   symbols,
 			Prices:    prices,
-			Timestamp: latestTimestamp,
+			Timestamp: t,
 		})
 	}
 
 	// update pricing to destination
 	updatedSymbols, err := app.updatePricingToDestination(mustUpdatePricingList, config)
 	if err != nil {
-		logger.Errorf("unsuccessful update pricing to destination because: %v", err)
+		logger.Errorf("update pricing to destination not completed because: %v", err)
 		return
 	}
-	logger.Infof("updated pricing to destination, symbols are %+v", updatedSymbols)
+	logger.Infof("updated symbols for this interval are %+v", updatedSymbols)
+
+	// TODO: recheck destination by query its latest pricing
 }

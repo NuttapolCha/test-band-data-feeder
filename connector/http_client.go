@@ -50,15 +50,15 @@ func (c *CustomHttpClient) Get(endpoint string, queryStr map[string]string, retr
 		logger.Debugf("attemp: %d requesting to %s", attmps+1, endpoint)
 		resp, err = client.Do(req)
 		if err != nil {
-			logger.Errorf("attempt: %d could not GET Request to %s because: %v, will retry in 3 seconds", attmps+1, endpoint, err)
-			time.Sleep(3 * time.Second)
+			logger.Errorf("attempt: %d could not GET Request to %s because: %v, will retry in 1 seconds", attmps+1, endpoint, err)
+			time.Sleep(1 * time.Second)
 			continue
 		}
 
 		respBody, err = c.resolveRespResult(resp)
 		if err != nil {
-			logger.Errorf("attempt: %d could not resolve response result from %s because: %v, will retry in 3 seconds", attmps+1, endpoint, err)
-			time.Sleep(3 * time.Second)
+			logger.Errorf("attempt: %d could not resolve response result from %s because: %v, will retry in 1 seconds", attmps+1, endpoint, err)
+			time.Sleep(1 * time.Second)
 			continue
 		}
 
@@ -85,15 +85,15 @@ func (c *CustomHttpClient) PostJSON(endpoint string, body []byte, retryCount int
 		logger.Debugf("attempt: %d requesting to %s", attmps+1, endpoint)
 		resp, err = http.Post(endpoint, "application/json", bytes.NewBuffer(body))
 		if err != nil {
-			logger.Errorf("attempt: %d could not POST Request to %s because: %v will retry in 3 seconds", attmps+1, endpoint, err)
-			time.Sleep(3 * time.Second)
+			logger.Errorf("attempt: %d could not POST Request to %s because: %v will retry in 1 seconds", attmps+1, endpoint, err)
+			time.Sleep(1 * time.Second)
 			continue
 		}
 
 		respBody, err = c.resolveRespResult(resp)
 		if err != nil {
-			logger.Errorf("attempt: %d could not resolve response result from %s because: %v, will retry in 3 seconds", attmps+1, endpoint, err)
-			time.Sleep(3 * time.Second)
+			logger.Errorf("attempt: %d could not resolve response result from %s because: %v, will retry in 1 seconds", attmps+1, endpoint, err)
+			time.Sleep(1 * time.Second)
 			continue
 		}
 

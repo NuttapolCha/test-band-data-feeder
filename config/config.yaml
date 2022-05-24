@@ -20,9 +20,7 @@ DataFeeder:
   # if current price is differ from latest price more than 0.1 then will update to destination immediatly
   DiffThreshold: 0.1
   # get new pricing every 10 seconds
-  DataSourceInterval: 10 
-  # check if we need to update to destination every 10 seconds
-  DestinationInterval: 10
+  Interval: 10 
   # before getting the requested pricing
   WaitTime: 5 
   # will feed these symbols to destination
