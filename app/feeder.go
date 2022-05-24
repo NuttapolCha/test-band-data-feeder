@@ -106,8 +106,6 @@ func (app *App) updateDataToDestination() {
 		price  float64
 	}
 	timestampMapSymbolPricing := make(map[int64][]pair)
-
-	var needUpdateCache bool
 	for _, symbol := range config.symbols {
 		// get latest price from cache
 		latestPriceFromSource, err := cache.GetLatestPriceFromDataSource(symbol)
@@ -117,11 +115,10 @@ func (app *App) updateDataToDestination() {
 		}
 		logger.Debugf("%s last update at %d price = %.4f", symbol, latestPriceFromSource.GetTimestamp(), latestPriceFromSource.GetPrice())
 
-		// get latest price from destination
-		// TODO: we no need to call endpoint everytime we checking
+		// get latest price from destination (will use cache if not too old)
 		// try memorization instead
 		var latestPriceFromDst *DestinationPricingResp
-		latestPriceFromDst, needUpdateCache, err = app.getLatestPriceFromDestination(symbol, config)
+		latestPriceFromDst, err = app.getLatestPriceFromDestination(symbol, config)
 		if err != nil {
 			logger.Warnf("could not get latest price of %s from destinationn because: %v", symbol, err)
 			logger.Warnf("destination maybe never received %s information before and need to send update", symbol)
@@ -135,7 +132,6 @@ func (app *App) updateDataToDestination() {
 
 		// immediatly means immediatly
 		if immediatly {
-			needUpdateCache = immediatly // true
 			go func(s string, p float64, t int64) {
 				updatedSymbols, err := app.updatePricingToDestination([]*UpdatePricingParams{
 					{
@@ -187,11 +183,6 @@ func (app *App) updateDataToDestination() {
 	if err != nil {
 		logger.Errorf("unsuccessful update pricing to destination because: %v", err)
 		return
-	}
-
-	needUpdateCache = needUpdateCache || len(updatedSymbols) > 0
-	if needUpdateCache { // miss understanding on this branch ???
-		cache.UpdateDestinationCacheTime()
 	}
 	logger.Infof("updated pricing to destination, symbols are %+v", updatedSymbols)
 }

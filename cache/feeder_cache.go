@@ -48,6 +48,7 @@ func UpdatePriceToDataSource(symbol string, price float64, timestamp int64) erro
 func UpdatePriceToDestination(symbol string, price float64, timestamp int64) error {
 	latestDestination.mu.Lock()
 	defer latestDestination.mu.Unlock()
+	defer updateDestinationCacheTime()
 
 	latestDestination.m[symbol] = &Pricing{
 		Price:     price,
@@ -57,6 +58,10 @@ func UpdatePriceToDestination(symbol string, price float64, timestamp int64) err
 	return nil
 }
 
-func UpdateDestinationCacheTime() {
+func ForceDestinationCacheOutOfDate() {
+	destinationCacheUpdatedAt = time.Now().Add(-1 * liveTime)
+}
+
+func updateDestinationCacheTime() {
 	destinationCacheUpdatedAt = time.Now()
 }

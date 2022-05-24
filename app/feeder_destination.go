@@ -25,9 +25,10 @@ func (p *DestinationPricingResp) GetTimestamp() int64 {
 	return p.LastUpdate
 }
 
-func (app *App) getLatestPriceFromDestination(symbol string, config *FeederConfig) (*DestinationPricingResp, bool, error) {
+func (app *App) getLatestPriceFromDestination(symbol string, config *FeederConfig) (*DestinationPricingResp, error) {
 	logger := app.logger
 
+	// retrieve destination pricing info from cache
 	if config.cachingEnable {
 		pricing, err := cache.GetLatestPriceFromDestination(symbol)
 		if err == nil {
@@ -35,33 +36,35 @@ func (app *App) getLatestPriceFromDestination(symbol string, config *FeederConfi
 			return &DestinationPricingResp{
 				Price:      pricing.GetPrice(),
 				LastUpdate: pricing.GetTimestamp(),
-			}, false, nil
+			}, nil
 		} else {
 			logger.Infof("could not get latest price from destination cache because: %v result in call destination service", err)
 		}
 	}
 
+	// request a new destination pricing info from destination service
 	body, err := app.httpClient.Get(config.getUpdatedPricingData, map[string]string{
 		"symbol": symbol,
 	}, config.destinationRetryCount)
 	if err != nil {
 		logger.Errorf("could not http GET because: %v", err)
-		return nil, false, err
+		return nil, err
 	}
 
 	ret := &DestinationPricingResp{}
 	if err := json.Unmarshal(body, ret); err != nil {
 		logger.Errorf("could not unmarshal destination pricing body into GO struct because: %v", err)
-		return nil, false, err
+		return nil, err
 	}
 
+	// cache the new destination pricing info we just received from destination service
 	if err := cache.UpdatePriceToDestination(symbol, ret.GetPrice(), ret.GetTimestamp()); err != nil {
 		logger.Errorf("could not update price to cache because: %v")
 	} else {
 		logger.Infof("pricing information of %s at destination has been cached", symbol)
 	}
 
-	return ret, true, nil
+	return ret, nil
 }
 
 type pricingWithTimestamp interface {
@@ -135,6 +138,11 @@ func (app *App) updatePricingToDestination(updatePricingParamsList []*UpdatePric
 		}
 		updatedSymbols = append(updatedSymbols, params.Symbols...)
 		logger.Debugf("successfully update pricing information of %+v prices %+v at timestamp %v", params.Symbols, params.Prices, params.Timestamp)
+	}
+
+	// destination cache must be out of date after destination got new pricing info
+	if len(updatedSymbols) > 0 {
+		cache.ForceDestinationCacheOutOfDate()
 	}
 
 	return updatedSymbols, err

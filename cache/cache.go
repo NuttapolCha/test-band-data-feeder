@@ -39,6 +39,7 @@ var (
 	dataSourceCachePath       string
 )
 
+// Init initialize data source and destination cache
 func Init(logger log.Logger) {
 	liveTime = viper.GetDuration("DataFeeder.Cache.LiveTime") * time.Second
 	destinationCachePath = viper.GetString("DataFeeder.Cache.Destination")
@@ -54,6 +55,7 @@ func Init(logger log.Logger) {
 	}
 }
 
+// Done update cache JSON file using latest application memory
 func Done(logger log.Logger) {
 	if err := utils.CreateFile(dataSourceCachePath, latestDataSource.m); err != nil {
 		logger.Errorf("could not create data source cache file because: %v", err)

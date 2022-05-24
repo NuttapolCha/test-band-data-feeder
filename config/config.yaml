@@ -16,12 +16,10 @@ ExternalAPIs:
 
 DataFeeder:
   Cache:
-    # setting Enable to false results in call destination for updated price every time 
     Enable: true
     DataSource: "./cache/data_source.json"
     Destination: "./cache/destination.json"
-    # If destination data cache has not been updated longer than 3600 seconds, service will call endpoint for updating
-    # only used in calling for destination updated price
+    # LiveTime describes destination cache live time in seconds
     LiveTime: 3600
   
   # will updates pricing to destination if no previous update longer than 3600 seconds
