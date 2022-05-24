@@ -16,6 +16,8 @@ var (
 	dataSourceLock sync.Mutex
 )
 
+// StartDataAutomaticFeeder called by cmd after initialized application.
+// It does get data from source, caching in memory and update to destination if neccessary
 func (app *App) StartDataAutomaticFeeder() error {
 	logger := app.logger
 
